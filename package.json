@@ -1,0 +1,34 @@
+{
+  "name": "claude-design-cursor-bridge",
+  "version": "0.1.0",
+  "description": "Bridge Claude Design (claude.ai/design) into any Cursor project: browser-driven generation, .zip ingest, and a reusable skill/command bundle that drops into .cursor/.",
+  "bin": {
+    "cdc": "bin/cdc.mjs"
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=18.17"
+  },
+  "files": [
+    "bin",
+    "scripts",
+    "templates",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "smoke": "node bin/cdc.mjs --help"
+  },
+  "keywords": [
+    "claude",
+    "claude-design",
+    "anthropic",
+    "cursor",
+    "mcp",
+    "design-handoff",
+    "ui",
+    "frontend"
+  ],
+  "license": "MIT",
+  "author": "Josias Strelow"
+}

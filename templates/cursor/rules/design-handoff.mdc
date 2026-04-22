@@ -1,0 +1,39 @@
+---
+description: Auto-attaches when the agent works on frontend code, pointing it at the Claude Design bridge skills.
+globs:
+  - "{{components_dir}}/**"
+  - "{{pages_dir}}/**"
+  - "{{tokens_file}}"
+  - ".design/handoff/**"
+alwaysApply: false
+---
+
+# Design Handoff (Claude Design ↔ this project)
+
+When the user provides a Claude Design `.zip`, a `.design/handoff/<slug>/`
+directory, or a `claude.ai/design/...` URL, follow
+`.cursor/skills/import-claude-design/SKILL.md`.
+
+When the user asks to "open Claude Design", "generate a design via browser",
+or invokes `/claude-design`, follow
+`.cursor/skills/claude-design-browser/SKILL.md`.
+
+Do not improvise. Always reconcile `design-tokens.json` against
+`{{tokens_file}}` before generating components, and always reuse existing
+components in `{{components_dir}}/` over generating new ones.
+
+The supported flow is:
+
+```
+/claude-design  →  browser MCP drives claude.ai/design  →  Export .zip
+       │                                                      │
+       └──────────  scripts/ingest-claude-design.mjs  ────────┘
+                                  │
+                  /import-claude-design (or auto handoff)
+                                  │
+              implement against this project's frontend
+```
+
+For the reverse direction (project → Claude Design), do not build a custom
+uploader. Use Claude Design's "Web capture" against the running dev server,
+or the Figma MCP if a designer is in the loop.
