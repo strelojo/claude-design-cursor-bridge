@@ -118,15 +118,22 @@ Capture the printed path. If empty, ask the user for the path manually
 ### Step 7 — Release the browser, ingest the bundle
 
 1. `browser_lock` action `unlock`. Done with the browser for this turn.
-2. Run the ingest script in the **target project root**:
+2. Ingest the bundle. Prefer the **MCP tool** (registered as
+   `claude-design-bridge` in `.cursor/mcp.json`):
+
+   ```
+   ingest_bundle({ zip_path: "<absolute-zip-path>", slug: "<optional>" })
+   ```
+
+   Returns structured `{ ok, slug, destination, ... }`. If the call
+   returns `isError: true` with `bundle missing required files`, stop
+   and report — Anthropic may have changed the bundle layout.
+
+   Fallback if the MCP server is not loaded:
 
    ```bash
    node scripts/ingest-claude-design.mjs "<absolute-zip-path>" [--slug <slug>]
    ```
-
-   The script unpacks into `.design/handoff/<slug>/` and prints a
-   summary. If it exits 3 (missing required files), stop and report — do
-   not blindly proceed. Anthropic may have changed the bundle layout.
 
 ### Step 8 — Hand off to the import skill
 

@@ -3,7 +3,12 @@
   "version": "0.1.0",
   "description": "Bridge Claude Design (claude.ai/design) into any Cursor project: browser-driven generation, .zip ingest, and a reusable skill/command bundle that drops into .cursor/.",
   "bin": {
-    "cdc": "bin/cdc.mjs"
+    "cdc": "bin/cdc.mjs",
+    "cdc-mcp": "bin/cdc-mcp.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "zod": "^3.25.0"
   },
   "type": "module",
   "engines": {

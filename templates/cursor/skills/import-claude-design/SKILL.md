@@ -63,32 +63,49 @@ treat `README.md` as source of truth and adapt.
 
 ### Step 1 — Ingest
 
-If the user gave a `.zip` path:
+If the user gave a `.zip` path, prefer the **MCP tool** (registered under
+`claude-design-bridge` in `.cursor/mcp.json`):
+
+```
+ingest_bundle({ zip_path: "<absolute path>", slug: "<optional>" })
+```
+
+Returns structured `{ ok, slug, destination, source_project, claude_design_version, target_route, component_count, token_groups, asset_count }`.
+
+Fallback if the MCP server is not loaded in the session, run the script:
 
 ```bash
 node scripts/ingest-claude-design.mjs <path-to-zip> [--slug <slug>]
 ```
 
-The script:
+Either path:
 - unpacks into `.design/handoff/<slug>/`,
 - validates `spec.json`, `design-tokens.json`, `README.md` are present,
-- prints a one-screen summary.
+- returns / prints a summary.
 
 If the user only gave a share URL, ask them to use "Export → .zip" in
 Claude Design (or run `/claude-design`), then drop the file in.
 
 ### Step 2 — Read the bundle in this exact order
 
-1. `manifest.json` — get `target_route`, `entrypoint`, `source_project`,
-   `claude_design_version`. If `claude_design_version` is newer than this
-   skill anticipates, stop and ask the user to update the skill before
-   consuming. Bundle format changes between versions.
-2. `README.md` — Anthropic-generated per-project notes. Honor any
-   "do/do not" rules there before falling back to defaults.
-3. `design-tokens.json` — diff against existing tokens (Step 3).
-4. `spec.json` — component tree, layout, interactions.
-5. `components/` — only open the ones referenced in the route you build.
+Prefer MCP tools over raw file reads where available (they validate and
+return structured JSON):
+
+1. `inspect_bundle({slug})` — manifest + counts. Get `target_route`,
+   `entrypoint`, `source_project`, `claude_design_version`. If
+   `claude_design_version` is newer than this skill anticipates, stop
+   and ask the user to update the skill. Bundle format changes between
+   versions.
+2. `read_readme({slug})` — Anthropic-generated per-project notes.
+   Honor any "do/do not" rules there before falling back to defaults.
+3. `read_tokens({slug})` — diff against existing tokens (Step 3).
+4. `read_spec({slug})` — component tree, layout, interactions.
+5. `components/` — only open the ones referenced in the route you build
+   (raw file read; not exposed as MCP tool to keep surface small).
 6. `assets/` — only copy assets actually referenced by `spec.json`.
+
+If the `claude-design-bridge` MCP server is not in this session, fall
+back to reading the same files directly with the standard file tools.
 
 ### Step 3 — Reconcile design tokens against the existing system
 

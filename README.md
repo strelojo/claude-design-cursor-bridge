@@ -13,6 +13,58 @@ Cursor is not a first-class target for Claude Design — Anthropic only ships a
 3. Installing **two reusable Cursor skills**, two slash commands, an
    auto-attach rule, and the ingest script — adapted to your project's
    framework (Next.js / Vite-React / Vue / Svelte / generic).
+4. Registering an **MCP server** (`claude-design-bridge`) that exposes the
+   deterministic operations as typed tool calls — works in Cursor, Claude
+   Code, Windsurf, Cline, Codex.
+
+## Architecture in one diagram
+
+```
+┌──────────────────────────────────────────────────────────────────────┐
+│  Cursor agent (or any MCP-aware client)                              │
+│                                                                      │
+│   slash command         skills                MCP server             │
+│   ─────────────         ──────                ──────────             │
+│   /claude-design   →    claude-design-browser SKILL.md               │
+│                          │                                           │
+│                          ▼ uses cursor-ide-browser MCP               │
+│                         drives claude.ai/design (your logged-in tab) │
+│                          │                                           │
+│                          ▼ exports .zip                              │
+│                          │                                           │
+│                          ▼ calls  ingest_bundle()  ─────────────┐    │
+│                                                                 │    │
+│   /import-claude-design → import-claude-design SKILL.md         │    │
+│                          │                                      │    │
+│                          ▼ calls inspect_bundle, read_spec,     │    │
+│                                  read_tokens, read_readme       │    │
+│                          │                                      │    │
+│                          ▼                                      │    │
+│   implements against the project's frontend                     │    │
+│                                                                 ▼    │
+│                                                ┌──────────────────┐  │
+│                                                │ claude-design-   │  │
+│                                                │ bridge MCP       │  │
+│                                                │ (cdc-mcp.mjs)    │  │
+│                                                │                  │  │
+│                                                │ ingest_bundle    │  │
+│                                                │ list_bundles     │  │
+│                                                │ inspect_bundle   │  │
+│                                                │ read_spec        │  │
+│                                                │ read_tokens      │  │
+│                                                │ read_readme      │  │
+│                                                │ doctor           │  │
+│                                                └──────────────────┘  │
+└──────────────────────────────────────────────────────────────────────┘
+```
+
+Browser-driven generation **stays in the skill** because it relies on your
+already-logged-in browser tab. A standalone Playwright would need its own
+Chromium + cookie store + 2FA handling — strictly worse.
+
+The deterministic ops (`ingest`, `list`, `inspect`, `read_*`, `doctor`)
+**move into the MCP server** because they are typed, side-effect-bounded,
+and useful from any MCP client.
 
 Result: in any project, `/claude-design <your prompt>` produces a working
 implementation against your existing components and design tokens, without
@@ -48,7 +100,9 @@ What `init` does:
 - writes `scripts/ingest-claude-design.mjs`,
 - writes `.design/handoff/README.md` and `.gitkeep`,
 - patches `.gitignore` so `.zip`s and asset binaries stay untracked but
-  spec JSON is committed.
+  spec JSON is committed,
+- registers the `claude-design-bridge` MCP server in
+  `.cursor/mcp.json` (skip with `--no-mcp`).
 
 Re-run with `--force` to overwrite. Re-run with custom paths if detection got
 it wrong:
@@ -138,10 +192,43 @@ my-project/
 │       └── .gitkeep
 ├── scripts/
 │   └── ingest-claude-design.mjs
-└── .gitignore                                 ← .design/handoff/**/*.zip etc.
+├── .gitignore                                 ← .design/handoff/**/*.zip etc.
+└── .cursor/mcp.json                           ← registers claude-design-bridge MCP server
 ```
 
 All paths inside the skills are resolved against your detected framework.
+
+## MCP server tools
+
+Once `init` has run, any MCP-aware client in the project sees these tools
+under server `claude-design-bridge`:
+
+| Tool             | Args                                          | Returns                           |
+|------------------|-----------------------------------------------|-----------------------------------|
+| `ingest_bundle`  | `zip_path`, `slug?`, `force?`, `project_root?` | `{ok, slug, destination, ...}`    |
+| `list_bundles`   | `project_root?`                               | `{bundles: [...]}`                |
+| `inspect_bundle` | `slug`, `project_root?`                       | manifest + counts                 |
+| `read_spec`      | `slug`, `project_root?`                       | parsed `spec.json`                |
+| `read_tokens`    | `slug`, `project_root?`                       | parsed `design-tokens.json`       |
+| `read_readme`    | `slug`, `project_root?`                       | raw `README.md`                   |
+| `doctor`         | `project_root?`                               | install + tool availability       |
+
+In another IDE that does not auto-load `.cursor/mcp.json`, register it
+manually. Example for Claude Code (`~/.claude.json` or project
+`.mcp.json`):
+
+```json
+{
+  "mcpServers": {
+    "claude-design-bridge": {
+      "command": "node",
+      "args": ["/path/to/claude-design-cursor-bridge/bin/cdc-mcp.mjs"]
+    }
+  }
+}
+```
+
+Cursor reads `.cursor/mcp.json` automatically.
 
 ---
 

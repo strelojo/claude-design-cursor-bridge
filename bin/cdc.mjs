@@ -58,6 +58,7 @@ ${ANSI.bold}COMMANDS${ANSI.reset}
                               --framework <next|vite-react|vue|svelte|generic>
                               --force                 overwrite existing files
                               --no-rule               skip writing .cursor/rules/design-handoff.mdc
+                              --no-mcp                skip registering MCP server in .cursor/mcp.json
                               --components-dir <p>    override detected components dir
                               --tokens-file <p>       override detected tokens file
                               --lint <cmd>            lint command (e.g. "pnpm lint")
@@ -270,6 +271,40 @@ function copyTemplateTree(srcDir, destDir, vars, { force }) {
   }
 }
 
+function ensureMcpJson(projectRoot, force) {
+  const mcpPath = join(projectRoot, '.cursor', 'mcp.json');
+  const serverName = 'claude-design-bridge';
+  const serverPath = join(PKG_ROOT, 'bin', 'cdc-mcp.mjs');
+  const entry = {
+    command: 'node',
+    args: [serverPath],
+  };
+
+  let cfg = { mcpServers: {} };
+  if (existsSync(mcpPath)) {
+    const cur = readJson(mcpPath);
+    if (cur && typeof cur === 'object') cfg = cur;
+    if (!cfg.mcpServers || typeof cfg.mcpServers !== 'object') cfg.mcpServers = {};
+  }
+
+  if (cfg.mcpServers[serverName] && !force) {
+    log.warn(`.cursor/mcp.json already has '${serverName}' (use --force to overwrite)`);
+    return;
+  }
+  cfg.mcpServers[serverName] = entry;
+  mkdirSync(dirname(mcpPath), { recursive: true });
+  writeFileSync(mcpPath, JSON.stringify(cfg, null, 2) + '\n');
+  log.ok(`registered MCP server '${serverName}' in .cursor/mcp.json`);
+}
+
+function readJson(p) {
+  try {
+    return JSON.parse(readFileSync(p, 'utf8'));
+  } catch {
+    return null;
+  }
+}
+
 function ensureGitignoreEntries(projectRoot) {
   const giPath = join(projectRoot, '.gitignore');
   const block = [
@@ -371,6 +406,9 @@ function cmdInit(positional, flags) {
   );
 
   ensureGitignoreEntries(projectRoot);
+  if (!flags['no-mcp']) {
+    ensureMcpJson(projectRoot, !!force);
+  }
 
   log.hr();
   log.ok('install complete');
@@ -389,14 +427,6 @@ function deriveSlug(filePath) {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-|-$/g, '');
-}
-
-function readJson(p) {
-  try {
-    return JSON.parse(readFileSync(p, 'utf8'));
-  } catch {
-    return null;
-  }
 }
 
 function walkCount(dir) {
