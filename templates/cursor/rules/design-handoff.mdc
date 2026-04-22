@@ -10,17 +10,46 @@ alwaysApply: false
 
 # Design Handoff (Claude Design ↔ this project)
 
-When the user provides a Claude Design `.zip`, a `.design/handoff/<slug>/`
-directory, or a `claude.ai/design/...` URL, follow
-`.cursor/skills/import-claude-design/SKILL.md`.
+## What is Claude Design (read first if unfamiliar)
 
-When the user asks to "open Claude Design", "generate a design via browser",
-or invokes `/claude-design`, follow
-`.cursor/skills/claude-design-browser/SKILL.md`.
+`Claude Design` is Anthropic's web app at `https://claude.ai/design` that
+generates UI mockups and interactive prototypes from text prompts. It
+launched April 2026 and requires a paid Claude account (Pro / Max / Team /
+Enterprise). It exports bundles in two formats:
 
-Do not improvise. Always reconcile `design-tokens.json` against
-`{{tokens_file}}` before generating components, and always reuse existing
-components in `{{components_dir}}/` over generating new ones.
+- **Handoff to Claude Code…** (preferred) — structured `.zip` containing
+  `manifest.json`, `spec.json`, `design-tokens.json`, `README.md`,
+  `components/`, `assets/`. Machine-readable; the bridge ingest tool
+  validates it.
+- **Download project as .zip** — raw React code only (`*.html` + `*.jsx`).
+  Use only if the structured option is unavailable; the import skill has
+  a documented fallback path for this case.
+
+There is **no native "Send to Cursor" button**. The bridge fills that gap
+by driving the browser via the `cursor-ide-browser` MCP and auto-ingesting
+the export. Both skills referenced below contain Background sections with
+concrete UI element names (snapshot refs, button labels) for agents
+without prior product knowledge.
+
+## When to load which skill
+
+| Trigger | Skill to follow |
+|---|---|
+| User invokes `/claude-design` or asks to "generate a design via browser" | `.cursor/skills/claude-design-browser/SKILL.md` |
+| User provides a `.zip`, a `.design/handoff/<slug>/` directory, or a `claude.ai/design/...` share URL | `.cursor/skills/import-claude-design/SKILL.md` |
+| User invokes `/import-claude-design` | same as above |
+
+## Hard rules
+
+- Do not improvise. Read the relevant skill end-to-end before acting.
+- Always reconcile `design-tokens.json` against `{{tokens_file}}` before
+  generating components.
+- Always reuse existing components in `{{components_dir}}/` over generating
+  new ones.
+- Never copy raw hex colors from the bundle into components — go through
+  the project's token layer.
+- Never invent backend endpoints to satisfy a spec. If the spec references
+  an endpoint that does not exist, stop and surface the gap.
 
 The supported flow is:
 

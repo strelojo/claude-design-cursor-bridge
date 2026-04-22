@@ -5,16 +5,27 @@ description: Consume a Claude Design handoff bundle (.zip exported from claude.a
 
 # Import Claude Design — Skill
 
-Claude Design exports a handoff bundle that Claude Code consumes natively.
-Cursor consumes the same bundle by reading its files as context. There is no
-"Send to Cursor" button. The supported entry points are:
+This skill is for **any agent**, regardless of model. Do not assume prior
+knowledge of Anthropic's products. Read the Background section below before
+acting.
 
-1. `.zip` export from claude.ai/design ("Export → .zip").
-2. The `claude-design-browser` skill in this same project, which automates
-   steps 1–7 of the export flow inside Cursor.
+## Background — what you are working with
 
-Cursor cannot replicate "Send to Claude Code Web" — that endpoint is gated to
-the Claude Code agent. Always require a local bundle.
+- **Claude Design** is a web app at `https://claude.ai/design` published by
+  Anthropic that generates UI mockups from text prompts. It exports
+  bundles in two formats:
+  - **"Handoff to Claude Code…"** — structured bundle with `manifest.json`,
+    `spec.json`, `design-tokens.json`, `README.md`, `components/`, `assets/`.
+    This is the format this skill is optimized for.
+  - **"Download project as .zip"** — raw React code only: a few `.html`
+    and `.jsx` files, no `spec.json`. Treat as code reference, not as a
+    spec. Section "Fallback for raw-code bundles" below covers this case.
+- The `cdc ingest` script and the `ingest_bundle` MCP tool both validate
+  the structured layout. If validation fails, fall back to manual extract.
+- "Send to Cursor" does not exist. The supported entry points are:
+  1. A `.zip` export from `claude.ai/design`.
+  2. The companion `claude-design-browser` skill, which automates the
+     browser flow.
 
 ## Project conventions for this install
 
@@ -85,6 +96,28 @@ Either path:
 
 If the user only gave a share URL, ask them to use "Export → .zip" in
 Claude Design (or run `/claude-design`), then drop the file in.
+
+#### Fallback for raw-code bundles ("Download project as .zip")
+
+If `ingest_bundle` returns `bundle missing required files` and inspecting
+the zip shows only `*.html` + `*.jsx` files, the user picked the wrong
+export option. Two recovery paths:
+
+A. **Re-export with the right option.** Ask the user to re-run
+   `/claude-design` and pick "Handoff to Claude Code…" instead.
+
+B. **Treat the raw code as reference.** If the user accepts:
+   ```bash
+   slug="<derived-from-zip-name>"
+   dest=".design/handoff/${slug}"
+   mkdir -p "$dest"
+   cp <path-to-zip> "$dest/source.zip"
+   (cd "$dest" && unzip -o source.zip)
+   ```
+   Then proceed with Step 4 directly using the `.jsx` files as the
+   component source. Skip Step 2 (spec/tokens) and Step 3
+   (token reconciliation) — there is no `design-tokens.json` to
+   reconcile. You must derive intent from the JSX itself.
 
 ### Step 2 — Read the bundle in this exact order
 
